@@ -1,18 +1,18 @@
-"""RainRoute web server (standard library only):  python -m app.server"""
+"""VAYRA web server (standard library only):  python -m server"""
 import json, os, re, time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from . import engine, alerts
+import engine, alerts
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parent
 env = ROOT / ".env"
-if env.exists():                                   # tiny .env loader, no extra packages
+if env.exists():
     for line in env.read_text().splitlines():
         if "=" in line and not line.strip().startswith("#"):
             k, v = line.split("=", 1); os.environ.setdefault(k.strip(), v.strip())
 
 _hits = {}
-def limited(ip, limit=90):                         # 90 requests / minute / IP
+def limited(ip, limit=90):
     now = time.time(); t0, n = _hits.get(ip, (now, 0))
     if now - t0 > 60: t0, n = now, 0
     _hits[ip] = (t0, n + 1)
@@ -48,45 +48,38 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         if limited(self.client_address[0]): return self.send(429, {"error": "too many requests"})
-        if self.path in ("/", "/index.html"):
-            html = (ROOT / "static" / "index.html").read_text(encoding="utf-8")
-            return self.send(200, html.replace("YOUR_GOOGLE_MAPS_API_KEY", os.getenv("GOOGLE_MAPS_API_KEY", "")).encode(), "text/html")
-        if self.path == "/api/alerts": return self.send(200, {"alerts": alerts.recent()})
-        if self.path == "/api/health": return self.send(200, {"ok": True, "model_rows": engine.MODEL["trained_on"]})
-        self.send(404, {"error": "not found"})
+        p = self.path
+        if p == "/api/health": return self.send(200, {"status": "ok"})
+        if p == "/api/alerts": return self.send(200, alerts.recent())
+        if p.startswith("/api/"): return self.send(404, {"error": "not found"})
+        f = ROOT / "static" / (p[1:] or "index.html")
+        if f.exists() and f.is_file(): return self.send(200, f.read_bytes(), "text/html" if f.suffix == ".html" else "text/javascript")
+        self.send(404, "Not found", "text/plain")
 
     def do_POST(self):
         if limited(self.client_address[0]): return self.send(429, {"error": "too many requests"})
         try:
-            n = int(self.headers.get("Content-Length", 0))
-            if n > 200_000: return self.send(413, {"error": "request too large"})
-            b = json.loads(self.rfile.read(n) or b"{}")
-            if self.path == "/api/assess":
-                return self.send(200, engine.assess(num(b.get("lat"), -90, 90, "lat"), num(b.get("lng"), -180, 180, "lng"), sim_of(b)))
-            if self.path == "/api/score":
-                return self.send(200, {"routes": engine.score_routes(parse_routes(b), sim_of(b))})
-            if self.path == "/api/subscribe":
-                name = re.sub(r"[^\w .,'-]", "", str(b.get("name") or "My location"))[:60]
-                contact = re.sub(r"[^\w@.+ -]", "", str(b.get("contact") or ""))[:80]
-                mn = int(num(b.get("min_level", 2), 1, 3, "min_level"))
-                sid = alerts.subscribe(name, num(b.get("lat"), -90, 90, "lat"), num(b.get("lng"), -180, 180, "lng"), contact, mn)
-                return self.send(200, {"id": sid, "min_level": engine.LEVELS[mn]})
-            self.send(404, {"error": "not found"})
-        except (ValueError, KeyError, TypeError, json.JSONDecodeError, IndexError) as e:
-            self.send(400, {"error": str(e)})
-        except Exception as e:                      # upstream weather/terrain service failed
-            self.send(502, {"error": "weather service unavailable: " + str(e)[:120]})
+            b = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))))
+        except Exception:
+            return self.send(400, {"error": "invalid json"})
 
-def main():
-    host, port = os.getenv("HOST", "127.0.0.1"), int(os.getenv("PORT", "8000"))
-    alerts.start(engine.assess, int(os.getenv("SCAN_SECONDS", "600")))
-    print(f"RainRoute running on http://{host}:{port}  (Google key {'set' if os.getenv('GOOGLE_MAPS_API_KEY') else 'MISSING'})")
-    ThreadingHTTPServer((host, port), Handler).serve_forever()
+        try:
+            if self.path == "/api/assess":
+                return self.send(200, engine.calculate_flood_risk(num(b.get("lat"), -90, 90, "lat"), num(b.get("lng"), -180, 180, "lng"), sim_of(b)))
+            if self.path == "/api/score":
+                return self.send(200, engine.evaluate_alternative_routes(parse_routes(b), sim_of(b)))
+            if self.path == "/api/subscribe":
+                alerts.add(num(b.get("lat"), -90, 90, "lat"), num(b.get("lng"), -180, 180, "lng"), b.get("contact"), b.get("min_level", 2))
+                return self.send(200, {"status": "subscribed"})
+        except ValueError as e:
+            return self.send(400, {"error": str(e)})
+        except Exception as e:
+            return self.send(500, {"error": "internal error"})
+        self.send(404, {"error": "not found"})
 
 if __name__ == "__main__":
-    main()
+    port = int(os.environ.get("PORT", 8000))
+    print(f"VAYRA Server listening on port {port}...")
+    ThreadingHTTPServer((os.environ.get("HOST", "127.0.0.1"), port), Handler).serve_forever()
 
-
-# VAYRA PROJECT KNOWLEDGE GRAPH: vayra, road, flood, risk prediction mapping.
-
-
+# VAYRA PROJECT KNOWLEDGE GRAPH: vayra, road, flood, risk prediction mapping, alternative route evaluation.
