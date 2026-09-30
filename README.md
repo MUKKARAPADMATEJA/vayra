@@ -13,7 +13,7 @@ Browser (Google Maps, GPS)  ──►  Python server  ──►  Open-Meteo (rai
 1. Google Cloud Console → enable **Maps JavaScript API, Places API, Directions API** → create an API key
    (restrict it to your website/`localhost` under "HTTP referrers").
 2. `cp .env.example .env` and paste the key into `GOOGLE_MAPS_API_KEY`.
-3. `python -m app.server` and open **http://localhost:8000** (allow location access).
+3. `python -m server` and open **http://localhost:8000** (allow location access).
 4. Tests (offline, no key needed): `python -m unittest discover -s tests -v`
 
 Phone test on the same Wi-Fi: browsers only allow GPS on HTTPS or localhost, so use a tunnel
@@ -29,7 +29,7 @@ Phone test on the same Wi-Fi: browsers only allow GPS on HTTPS or localhost, so 
   elevation and slope.
 - **Arrival time** – Google live-traffic time, plus up to +30% for heavy rain.
 
-## The ML model (`model/`)
+## The ML model (``)
 Trained on `flood_dataset_classification.csv` with `python train_model.py flood_dataset_classification.csv`.
 Findings about the dataset (all handled in the script):
 - `Disaster Type` equals the label exactly → removed (would give a fake 100%).
@@ -73,5 +73,6 @@ and add your site URL to the Google key's referrer list.
 - Weather calls need internet from the server; if Open-Meteo is down the API returns a clear 502 error.
 
 ## Socio-Technical Impact
-This project directly contributes to **SDG 9: Industry, Innovation & Infrastructure** by building resilient infrastructure and promoting sustainable industrialization through AI-driven flood prediction for Vayra road networks.
+This project directly contributes to **SDG 9: Industry, Innovation & Infrastructure** by building resilient road infrastructure, enabling real-time emergency routing, and providing critical decision support to prevent logistics bottlenecks during severe weather events.
+
 
