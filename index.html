@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>RainRoute – RoadFlood Early Warning System</title>
+<style>
+:root{--bg:#f4f7fb;--card:#fff;--tx:#14213d;--mut:#5b6b85;--bd:#dbe3ef;--c0:#1fa97a;--c1:#e6b800;--c2:#f08a24;--c3:#d93a3a;--blue:#2b6cff}
+@media (prefers-color-scheme:dark){:root{--bg:#0d1526;--card:#16213a;--tx:#eaf0fb;--mut:#9fb0cc;--bd:#263453}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;line-height:1.45}
+.wrap{max-width:1000px;margin:0 auto;padding:14px}
+h1{font-size:1.35rem;margin:0}h1 span{color:var(--blue)}
+.sub{color:var(--mut);margin:2px 0 12px;font-size:.9rem}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:14px;margin-bottom:12px}
+.banner{border-radius:14px;padding:14px 16px;color:#fff;margin-bottom:12px;display:flex;gap:12px;align-items:center;background:#5b6b85}
+.banner b{font-size:1.2rem;display:block}.banner .ic{font-size:2rem}
+#map{height:52vh;min-height:320px;border-radius:14px;border:1px solid var(--bd);margin-bottom:12px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+input,select{flex:1;min-width:160px;padding:10px;border-radius:9px;border:1px solid var(--bd);background:var(--bg);color:var(--tx);font-size:.95rem}
+button{padding:10px 14px;border-radius:9px;border:0;background:var(--blue);color:#fff;font-weight:600;cursor:pointer;font-size:.92rem}
+button.alt{background:var(--bg);color:var(--tx);border:1px solid var(--bd)}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-top:10px}
+.stat{background:var(--bg);border-radius:10px;padding:8px 10px;font-size:.8rem;color:var(--mut)}
+.stat b{display:block;color:var(--tx);font-size:1.05rem}
+.opt{cursor:pointer;border-left:6px solid var(--bd);background:var(--bg);border-radius:8px;padding:8px 12px;margin-top:8px;font-size:.9rem}
+.note{font-size:.78rem;color:var(--mut)}
+#gps{font-size:.82rem;color:var(--mut);margin:6px 0}
+.tips li{margin-bottom:5px}
+.opt.sel{outline:2px solid var(--blue)}
+.tag{display:inline-block;font-size:.68rem;padding:2px 7px;border-radius:99px;background:var(--blue);color:#fff;margin-left:4px;vertical-align:middle}
+details{margin-top:4px;font-size:.82rem;color:var(--mut)}details ol{padding-left:18px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>Rain<span>Route</span> · RoadFlood Early Warning</h1>
+<p class="sub">Live GPS + live rain + terrain = flood risk where you are, and the safest way to get where you're going.</p>
+
+<div id="banner" class="banner"><div class="ic">📡</div><div><b>Finding your location…</b>Please allow location access.</div></div>
+<div id="map"></div>
+<div id="gps">GPS: waiting…</div>
+
+<div class="card">
+<div class="row">
+<input id="from" placeholder="From: my current location (GPS)">
+<input id="dest" placeholder="Where do you want to go? (search a place)">
+<button id="go" style="min-width:150px">Find safest route</button>
+</div>
+<div class="row" style="margin-top:8px">
+<button class="alt" id="follow">📍 Following me: ON</button>
+<button class="alt" id="alerts">🔔 Phone alerts</button>
+<button class="alt" id="sub">📨 Alert me here</button>
+<select id="sim" title="Test mode">
+<option value="">Live weather</option><option value="10">Test: moderate rain</option><option value="30">Test: heavy rain</option><option value="60">Test: very heavy rain</option><option value="100">Test: cloudburst</option>
+</select>
+</div>
+<div class="row" style="margin-top:8px"><input id="contact" placeholder="Email/phone for server alerts (optional)"></div>
+<div class="stats">
+<div class="stat">Rain now<b id="s1">–</b></div>
+<div class="stat">Next 4 hrs (max)<b id="s2">–</b></div>
+<div class="stat">Last 12 hrs<b id="s3">–</b></div>
+<div class="stat">Your elevation<b id="s4">–</b></div>
+<div class="stat">Area flood-proneness (ML)<b id="s5">–</b></div>
+</div>
+<div id="msg" class="note" role="status" style="margin-top:8px"></div>
+<div id="routes"></div>
+</div>
+
+<div class="card"><b>Recent alerts</b><div id="feed" class="note">No alerts yet.</div></div>
+<div class="card"><b>What should I do?</b><ul class="tips" id="tips"></ul></div>
+<p class="note">Architecture: browser (Google Maps + GPS) → Python server → Open-Meteo (rain, terrain) + ML model trained on 5,019 disaster records (weak signal, 30% of the score). Flood risk is an estimate, not an official warning – follow local authority alerts.</p>
+</div>
+
+<script>
+const LV=[
+{n:"SAFE",c:"#1fa97a",i:"✅",t:"No flood risk at your location right now.",tips:["No special action needed.","Keep this page open for automatic updates."]},
+{n:"WATCH",c:"#e6b800",i:"👀",t:"Water may collect on low roads nearby.",tips:["Drive slowly, keep extra distance.","Avoid parking in low areas.","Check the route before you travel."]},
+{n:"WARNING",c:"#f08a24",i:"⚠️",t:"Flooding is likely on low-lying roads. Use the safest route.",tips:["Avoid underpasses and roads beside rivers/canals.","Delay non-essential trips.","Keep phone charged and emergency numbers ready."]},
+{n:"DANGER",c:"#d93a3a",i:"🚨",t:"Severe flooding likely. Do not travel unless necessary.",tips:["Never drive through flood water – 30 cm can float a car.","Move to higher ground and vehicles out of low areas.","If trapped, call your emergency number (112 in India)."]}
+];
+const $=id=>document.getElementById(id);
+const msg=t=>{$("msg").textContent=t||""};
+let map,meMarker,accCircle,pos=null,follow=true,sim=null,lastAssess=null,lastLevel=0,inflight=null,destAC,orgAC,drawn=[],curInfo=null,A=null;
+
+window.gm_authFailure=()=>{$("banner").style.background="#d93a3a";$("banner").innerHTML='<div class="ic">🔑</div><div><b>Google Maps key problem</b>Check GOOGLE_MAPS_API_KEY in .env, billing, and that Maps JavaScript, Places and Directions APIs are enabled.</div>'};
+
+async function api(path,body,ms=30000){                  // talks to our own server (Python backend)
+  const c=new AbortController(),t=setTimeout(()=>c.abort(),ms);
+  try{const r=await fetch(path,{method:body?"POST":"GET",headers:{"Content-Type":"application/json"},body:body?JSON.stringify(body):undefined,signal:c.signal});
+    const j=await r.json();if(!r.ok)throw new Error(j.error||r.status);return j}
+  finally{clearTimeout(t)}
+}
+function dist(a,b){const R=6371000,r=Math.PI/180,dl=(b.lat-a.lat)*r,dg=(b.lng-a.lng)*r;
+  const x=Math.sin(dl/2)**2+Math.cos(a.lat*r)*Math.cos(b.lat*r)*Math.sin(dg/2)**2;return 2*R*Math.asin(Math.sqrt(x))}
+
+function initMap(){
+  map=new google.maps.Map($("map"),{center:{lat:17.385,lng:78.4867},zoom:14,mapTypeControl:false,streetViewControl:false});
+  meMarker=new google.maps.Marker({map,zIndex:9,icon:{path:google.maps.SymbolPath.CIRCLE,scale:9,fillColor:"#2b6cff",fillOpacity:1,strokeColor:"#fff",strokeWeight:3}});
+  accCircle=new google.maps.Circle({map,fillColor:"#2b6cff",fillOpacity:.12,strokeOpacity:0});
+  destAC=new google.maps.places.Autocomplete($("dest"),{fields:["geometry","name"]});
+  orgAC=new google.maps.places.Autocomplete($("from"),{fields:["geometry","name"]});
+  map.addListener("dragstart",()=>setFollow(false));
+  startGPS();
+}
+function startGPS(){
+  if(!navigator.geolocation){$("gps").textContent="GPS not supported on this device.";return}
+  navigator.geolocation.watchPosition(p=>{
+    const np={lat:p.coords.latitude,lng:p.coords.longitude},spd=p.coords.speed?` · ${(p.coords.speed*3.6).toFixed(0)} km/h`:"";
+    $("gps").textContent=`GPS live · accuracy ±${Math.round(p.coords.accuracy)} m${spd}`;
+    accCircle.setRadius(p.coords.accuracy);
+    if(pos&&dist(np,pos)<5)return;                       // ignore GPS jitter
+    pos=np;meMarker.setPosition(pos);accCircle.setCenter(pos);
+    if(follow)map.panTo(pos);
+    if(!lastAssess||dist(pos,lastAssess)>300)assess();
+  },e=>{
+    $("gps").textContent="Location blocked: "+e.message+". Allow location access (needs HTTPS or localhost).";
+    $("banner").innerHTML='<div class="ic">📍</div><div><b>Location needed</b>Allow location access to see flood risk where you are.</div>';
+  },{enableHighAccuracy:true,maximumAge:5000,timeout:20000});
+}
+
+function assess(){
+  if(!pos)return;
+  if(inflight)return inflight;
+  lastAssess={...pos};
+  inflight=(async()=>{
+    try{A=await api("/api/assess",{lat:pos.lat,lng:pos.lng,sim});render()}
+    catch(e){$("banner").style.background="#5b6b85";$("banner").innerHTML=`<div class="ic">📶</div><div><b>Could not load weather/terrain</b>${e.message}. Retrying automatically.</div>`;lastAssess=null}
+  })().finally(()=>{inflight=null});
+  return inflight;
+}
+function render(){
+  const L=LV[A.level],low=A.diff<-1?` You are in a low spot (${Math.abs(A.diff).toFixed(0)} m below the area around you).`:"";
+  $("banner").style.background=L.c;
+  $("banner").innerHTML=`<div class="ic">${L.i}</div><div><b>${L.n} at your location</b>${L.t}${low}</div>`;
+  $("tips").innerHTML=L.tips.map(t=>`<li>${t}</li>`).join("");
+  $("s1").textContent=`${A.rain_now} mm/h`;$("s2").textContent=`${A.next} mm/h`;
+  $("s3").textContent=A.past==null?"–":A.past+" mm";$("s4").textContent=`${A.elevation} m`;
+  $("s5").textContent=A.prone;$("s5").title=`ML score ${Math.round(A.ml_score*100)}% · yearly rain ${A.annual_rain} mm · slope ${A.slope}°`;
+  if(A.level>=2&&A.level>lastLevel&&"Notification" in window&&Notification.permission==="granted")new Notification("RainRoute: "+L.n,{body:L.t});
+  lastLevel=A.level;
+}
+
+function sampleRoute(path,max=24){                      // evenly spaced by distance (~500 m min)
+  const P=path.map(q=>({lat:q.lat(),lng:q.lng()}));
+  let total=0;for(let i=1;i<P.length;i++)total+=dist(P[i-1],P[i]);
+  const step=Math.max(500,total/(max-1)),out=[P[0]];let acc=0;
+  for(let i=1;i<P.length;i++){acc+=dist(P[i-1],P[i]);if(acc>=step){out.push(P[i]);acc=0}}
+  if(out[out.length-1]!==P[P.length-1])out.push(P[P.length-1]);
+  return out;
+}
+const routeP=req=>new Promise((ok,no)=>new google.maps.DirectionsService().route(req,(r,s)=>s==="OK"?ok(r):no(s)));
+const fmt=s=>{const m=Math.max(1,Math.round(s/60));return m>=60?`${Math.floor(m/60)} h ${m%60} min`:`${m} min`};
+const clock=s=>new Date(Date.now()+s*1000).toLocaleTimeString([],{hour:"numeric",minute:"2-digit"});
+const plain=h=>h.replace(/<[^>]+>/g," ").replace(/\s+/g," ").trim();
+
+function draw(sel){
+  drawn.forEach(x=>x.setMap(null));drawn=[];
+  curInfo.list.forEach(x=>{const b=x.i===sel;
+    drawn.push(new google.maps.Polyline({map,path:x.r.overview_path,strokeColor:LV[x.level].c,strokeWeight:b?8:4,strokeOpacity:b?.95:.45,zIndex:b?5:1}));
+    if(b&&x.level>=2)drawn.push(new google.maps.Marker({map,position:{lat:x.wp[0],lng:x.wp[1]},label:"💧",title:"Flood-prone stretch (~"+fmt(x.wt)+" into trip)"}))});
+  document.querySelectorAll(".opt[data-i]").forEach(c=>c.classList.toggle("sel",+c.dataset.i===sel));
+  map.fitBounds(curInfo.list.find(x=>x.i===sel).r.bounds);
+}
+async function findRoute(){
+  const pl=destAC.getPlace(),op=$("from").value.trim()&&orgAC.getPlace();
+  const origin=op&&op.geometry?op.geometry.location:pos;
+  if(!origin)return msg("Waiting for GPS location…");
+  if(!pl||!pl.geometry)return msg("Please pick a destination from the suggestions list.");
+  msg("Checking routes, terrain and rain forecast…");$("go").disabled=true;
+  try{
+    const res=await routeP({origin,destination:pl.geometry.location,travelMode:"DRIVING",provideRouteAlternatives:true,drivingOptions:{departureTime:new Date(),trafficModel:"bestguess"}});
+    const routes=res.routes.slice(0,4),sets=routes.map(r=>sampleRoute(r.overview_path));
+    const S=(await api("/api/score",{sim,routes:routes.map((r,i)=>({points:sets[i].map(p=>[p.lat,p.lng]),duration:(r.legs[0].duration_in_traffic||r.legs[0].duration).value}))})).routes;
+    const list=routes.map((r,i)=>({r,i,L:r.legs[0],steps:r.legs[0].steps.length,km:r.legs[0].distance.text,t:S[i].eta,...S[i]}));
+    const best=list.slice().sort((a,b)=>a.level-b.level||a.t-b.t)[0];
+    const fast=list.reduce((a,b)=>b.t<a.t?b:a),safe=list.reduce((a,b)=>b.score<a.score?b:a),simple=list.reduce((a,b)=>b.steps<a.steps?b:a);
+    curInfo={list};
+    $("routes").innerHTML=`<div class="note" style="margin-top:8px">Rain at destination when you arrive (~${clock(best.t)}): <b>${best.dest_rain.toFixed(1)} mm/h</b> · ${list.length} route${list.length>1?"s":""} found · tap a route to view it</div>`+
+    list.map(x=>`<div class="opt" data-i="${x.i}" style="border-left-color:${LV[x.level].c}">
+      <b>${x===best?"✅ Recommended · ":""}Route ${x.i+1}</b> via ${x.r.summary||"main roads"}
+      ${x===fast?'<span class="tag">Fastest</span>':""}${x===safe?'<span class="tag" style="background:#1fa97a">Safest</span>':""}${x===simple?'<span class="tag" style="background:#7a4dff">Simplest</span>':""}<br>
+      ⏱ <b>${fmt(x.t)}</b> (arrive ${clock(x.t)}${x.extra>=60?`, ≈+${fmt(x.extra)} for rain`:""}) · 📏 ${x.km} · ↪ ${x.steps} turns/steps<br>
+      Flood risk: <b style="color:${LV[x.level].c}">${LV[x.level].n} (${x.pct}%)</b> · Max rain on route: ${x.max_rain.toFixed(1)} mm/h${x.max_rain>0.2?` at ~${fmt(x.max_t)}`:""}
+      ${x.level>=2?`<br>💧 Flood-prone stretch about ${fmt(x.wt)} into the trip`:""}
+      <details><summary>Turn-by-turn</summary><ol>${x.L.steps.map(s=>`<li>${plain(s.instructions)} (${s.distance.text})</li>`).join("")}</ol></details></div>`).join("")
+    +(best.level===3?'<div class="opt" style="border-left-color:#d93a3a">🚫 Every route has a dangerous stretch. Please wait or delay your trip.</div>':"");
+    document.querySelectorAll(".opt[data-i]").forEach(c=>c.onclick=ev=>{if(ev.target.tagName!=="SUMMARY")draw(+c.dataset.i)});
+    setFollow(false);draw(best.i);msg("");
+  }catch(e){msg("Could not get routes ("+(e&&e.message||e)+").")}
+  finally{$("go").disabled=false}
+}
+async function subscribe(){
+  if(!pos)return msg("Waiting for GPS location…");
+  try{const r=await api("/api/subscribe",{lat:pos.lat,lng:pos.lng,name:"My location",contact:$("contact").value,min_level:2});
+    msg(`Alerts on: the server will notify you when risk reaches ${r.min_level} here.`);loadAlerts()}
+  catch(e){msg("Could not subscribe: "+e.message)}
+}
+async function loadAlerts(){
+  try{const a=(await api("/api/alerts")).alerts;
+    $("feed").innerHTML=a.length?a.map(x=>`<div class="opt" style="border-left-color:${LV[x.level].c}">${new Date(x.ts*1000).toLocaleString()} – ${x.text}</div>`).join(""):"No alerts yet."}catch(e){}
+}
+function setFollow(v){follow=v;$("follow").textContent="📍 Following me: "+(v?"ON":"OFF");if(v&&pos)map.panTo(pos)}
+$("go").onclick=findRoute;$("sub").onclick=subscribe;
+$("follow").onclick=()=>setFollow(!follow);
+$("alerts").onclick=()=>"Notification" in window?Notification.requestPermission().then(p=>{$("alerts").textContent=p==="granted"?"🔔 Alerts ON":"🔕 Alerts blocked"}):0;
+$("sim").onchange=e=>{sim=e.target.value?+e.target.value:null;assess()};
+setInterval(()=>{if(!document.hidden)assess()},600000);
+setInterval(loadAlerts,60000);loadAlerts();
+document.addEventListener("visibilitychange",()=>{if(!document.hidden)assess()});
+</script>
+<script async src="https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_MAPS_API_KEY&libraries=places&callback=initMap"></script>
+</body>
+</html>

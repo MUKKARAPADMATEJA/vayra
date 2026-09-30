@@ -1,0 +1,3 @@
+# No third-party packages needed (Python 3.9+ standard library only).
+# Only for retraining the model (model/train_model.py):
+# pandas numpy scikit-learn joblib
