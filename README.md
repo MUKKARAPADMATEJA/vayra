@@ -1,43 +1,25 @@
-﻿# 🌊 Vayra: Predictive Flood Routing Algorithm
-**Submission for OPTI FORGE '26 AI Hackathon - Algorithm Design Challenge**
+﻿# 🌊 Vayra: Autonomous IoT Flood Prediction Assistant
+**Submission for OPTI FORGE '26 AI Hackathon**
 
 ![Vayra Dashboard](https://img.shields.io/badge/Status-Hackathon_Prototype-brightgreen) ![Tech Stack](https://img.shields.io/badge/Tech-Python_|_IoT_|_JS-blue)
 
-## 📌 The Problem
-Current navigation systems (like Google Maps) only route traffic away from flooded roads **after** users get stuck and report the blockage. This reactive approach causes massive traffic bottlenecks and delays emergency vehicles. 
+## 📌 Chosen Vertical
+**Open Innovation / Smart City Traffic Management**
+Vayra acts as a smart, dynamic routing assistant for city planners and emergency responders. It provides logical decision-making based on user context (e.g., whether the user is driving a hospital ambulance or a civilian car) to provide safe, real-time routing during flash floods.
 
-## 💡 Our Solution
-**Vayra** is an IoT-enabled algorithmic early-warning system. We place low-cost water sensors in known flood-prone underpasses. Instead of just reading water levels, our system runs a **predictive algorithm** to determine *when* the road will become impassable, and dynamically reroutes traffic *before* the bottleneck occurs.
+## 🧠 Approach and Algorithmic Logic
+Vayra operates on an advanced algorithmic pipeline:
+1. **The Predictive Model (Time-to-Flood)**: The system calculates the real-time **Rate of Rise**. A Sugeno fuzzy inference system calculates risk based on water depth and rise-rate. 
+2. **Dynamic Time-Aware A* Routing**: The road network is modeled as a Directed Graph. The system instantly recalculates the shortest path using a Time-Dependent A* algorithm, routing users away from roads *before* they flood.
 
----
+## ⚙️ How the solution works end-to-end
+1. **Data Ingestion**: IoT sensors and radar rain forecasts are assimilated.
+2. **Simulation**: A vectorised 2D hydrology grid model simulates runoff and drainage.
+3. **Hyper-tuning**: A real-coded Genetic Algorithm (BLX-alpha crossover) optimizes 9 internal parameters.
+4. **User Assistant Output**: The web dashboard alerts the user and dynamically reroutes their trip on the live map if their current path is predicted to flood.
 
-## 🧠 Core Algorithm Design (How it works)
-
-To solve the Algorithm Design Challenge, Vayra operates on a two-step algorithmic pipeline:
-
-### 1. The Predictive Model (Time-to-Flood)
-Instead of a static warning, the algorithm calculates the real-time **Rate of Rise**.
-Rate of Rise = Δ Water Level / Δ Time
-Estimated Time to Flood = (Danger Threshold - Current Level) / Rate of Rise
-*This allows the system to warn users "Road will be flooded in 15 minutes" rather than waiting for it to happen.*
-
-### 2. Dynamic Weight Dijkstra Routing
-The road network is modeled as a Directed Graph.
-* Under normal conditions, edge weights represent standard travel time.
-* When the Predictive Model flags a node (e.g., an underpass) as nearing the danger threshold, the **Algorithm dynamically updates the graph weight of that specific edge to Infinity (∞)**.
-* The system instantly recalculates the shortest path using Dijkstra's Algorithm, forcing the UI to suggest an alternative route.
-
----
-
-## 📁 Repository Structure
-* /frontend - Contains the interactive UI Dashboard mimicking the live map and sensor predictions.
-* /algorithm - Contains the Python implementation of the dynamic Dijkstra routing and predictive logic.
-* /hardware - Contains the C++/Arduino code for the ESP32 IoT sensor nodes.
-
-## 🚀 How to Run the Demo (For Judges)
-1. Navigate to the /frontend folder.
-2. Download and open Vayra_Dashboard.html in any web browser.
-3. Click **"Start Rain Simulation"** in the top right to watch the algorithmic rerouting happen in real-time as the simulated water level rises.
-
-## 🔮 Future Scope (AI Integration)
-In future iterations, Vayra will integrate historical rainfall data and live weather API forecasts into a **Random Forest regression model**. This will allow the system to predict underpass flooding hours in advance based purely on weather patterns, without waiting for the water to physically start rising.
+## ⚠️ Assumptions or Operational Constraints Made
+- The current hydrology model uses a simplified 2D bucket model, assuming constant drainage capacities across grid cells.
+- The router operates as a heuristic time-aware A* search (label-setting approximation).
+- IoT sensors are assumed to have a maximum noise variance of 0.01 meters.
+- Testing is currently validated on synthetic grid storms (NumPy generated).
