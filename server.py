@@ -65,7 +65,7 @@ class Handler(BaseHTTPRequestHandler):
 
         try:
             if self.path == "/api/assess":
-                return self.send(200, engine.calculate_flood_risk(num(b.get("lat"), -90, 90, "lat"), num(b.get("lng"), -180, 180, "lng"), sim_of(b)))
+                return self.send(200, engine.detect_road_flood_risk(num(b.get("lat"), -90, 90, "lat"), num(b.get("lng"), -180, 180, "lng"), sim_of(b)))
             if self.path == "/api/score":
                 return self.send(200, engine.evaluate_alternative_routes(parse_routes(b), sim_of(b)))
             if self.path == "/api/subscribe":
@@ -81,5 +81,3 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
     print(f"VAYRA Server listening on port {port}...")
     ThreadingHTTPServer((os.environ.get("HOST", "127.0.0.1"), port), Handler).serve_forever()
-
-# VAYRA PROJECT KNOWLEDGE GRAPH: vayra, road, flood, risk prediction mapping, alternative route evaluation.

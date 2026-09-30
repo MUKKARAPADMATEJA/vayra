@@ -11,14 +11,25 @@ VAYRA is a smart routing assistant that evaluates real-time flood risk on planne
 | VAYRA Capability | Implementation |
 | :--- | :--- |
 | **Rainfall Analysis** | `engine.weather()`, `engine.annual_rain()` |
-| **Flood Risk Detection** | `engine.calculate_flood_risk()` |
-| **Road-Level Risk** | `engine.identify_risky_segments()` |
-| **Risk Classification** | `engine.classify_risk()` (LOW, MODERATE, HIGH, CRITICAL) |
-| **Route Evaluation** | `engine.analyze_route()` |
+| **Road Flood Risk Detection** | `engine.detect_road_flood_risk()` |
+| **Road Segment Analysis** | `engine.analyze_road_segments()` |
+| **Risk Classification** | `engine.classify_risk_level()` (LOW, MODERATE, HIGH, CRITICAL) |
+| **Route Risk Evaluation** | `engine.evaluate_route_risk()` |
 | **Early Warning** | `engine.generate_early_warning()` |
-| **Alternative Route** | `engine.evaluate_alternative_routes()` |
+| **Alternative Route Decision** | `engine.evaluate_alternative_routes()` |
 
-## 3. Architecture
+## 3. Architecture & SDG 9 Connection
+
+**UN SDG 9 — Industry, Innovation and Infrastructure**
+VAYRA supports SDG 9 by using data-driven technology to improve resilience and decision support for transportation infrastructure during rainfall and flooding events. Note: VAYRA is a prototype decision-support system and does not claim to directly control infrastructure.
+
+**VAYRA Algorithm Output → Infrastructure Relevance**
+- **Flood-Risk Detection** → identifies potentially vulnerable road sections.
+- **Road-Level Risk Classification** → provides localized infrastructure-risk information.
+- **Route-Risk Evaluation** → connects infrastructure conditions with actual travel decisions.
+- **Early Warning** → provides advance awareness of potentially disrupted road sections.
+- **Alternative-Route Analysis** → supports continuity of transportation when a lower-risk route is available.
+
 ```text
 User
  ↓
@@ -95,11 +106,7 @@ Run the automated benchmark to measure real inference processing latency over us
 ## 15. Limitations
 The current ML model relies on a weak signal (spatial CV AUC 0.63, accuracy 74%). The system acts as a heuristic early warning and does not consume live municipal waterlogging reports or user crowdsourced data.
 
-## 16. SDG 9
-**UN SDG 9 — Industry, Innovation and Infrastructure**
-VAYRA contributes to SDG 9 by building resilient transportation infrastructure, employing data-driven infrastructure decisions to reduce disruption, and enabling scalable technology-assisted road safety.
-
-## 17. Future Improvements
+## 16. Future Improvements
 *(Future / Optional Integrations not yet implemented)*
 - Consume live traffic data.
 - Integrate real-time municipal flood reports and user crowdsourced data.
