@@ -1,25 +1,40 @@
-﻿import time
+import time
 import tracemalloc
 import numpy as np
-from vayra_types import vayra_risk_assessment
+import engine
 
 def benchmark_inference():
-    print("Starting automated VAYRA system benchmark...")
-    batch_sizes = [1, 16, 64, 256]
+    print("VAYRA Performance Benchmark")
+    print("---------------------------")
+    batch_sizes = [10, 50, 100]
     
     for batch in batch_sizes:
         tracemalloc.start()
-        start_time = time.time()
         
-        # Benchmark actual VAYRA inference function
-        input_tensor = np.random.rand(batch, 128)
-        _ = vayra_risk_assessment(input_tensor, threshold=0.5)
-        
-        latency = (time.time() - start_time) * 1000  # ms
+        latencies = []
+        for _ in range(50):
+            start_time = time.time()
+            
+            # Simulate real VAYRA route point evaluation
+            # input to ML model: lat, lng, precipitation_sum, elevation, slope
+            dummy_point = [17.3850, 78.4867, 120.5, 500.0, 2.5]
+            _ = engine.predict(dummy_point)
+            
+            # Simulate real VAYRA risk scoring
+            _ = engine.vuln2(2.5, engine.v_model(0.6))
+            
+            latencies.append((time.time() - start_time) * 1000)
+            
         current, peak = tracemalloc.get_traced_memory()
         tracemalloc.stop()
         
-        print(f"Batch Size: {batch:3d} | Vayra Inference Latency: {latency:.2f} ms | Peak Memory Usage: {peak / 1024:.2f} KB")
+        avg_latency = np.mean(latencies)
+        p95_latency = np.percentile(latencies, 95)
+        
+        print(f"Input size: {batch} segments")
+        print(f"Average latency: {avg_latency:.2f} ms")
+        print(f"P95 latency: {p95_latency:.2f} ms")
+        print(f"Peak memory: {peak / (1024*1024):.2f} MB\n")
 
 if __name__ == '__main__':
     benchmark_inference()

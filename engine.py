@@ -15,14 +15,18 @@ PAST, HOURS = 12, 7
 clamp = lambda x, a, b: min(b, max(a, x))
 rnd = lambda x: math.floor(x + 0.5)          # same rounding as JavaScript Math.round
 
-def dist(a, b):
+def dist(a: list, b: list) -> float:
     r = math.pi / 180
     dl, dg = (b[0] - a[0]) * r, (b[1] - a[1]) * r
     x = math.sin(dl / 2) ** 2 + math.cos(a[0] * r) * math.cos(b[0] * r) * math.sin(dg / 2) ** 2
     return 2 * 6371000 * math.asin(math.sqrt(x))
 
 # ---------- ML model ----------
-def predict(x):
+def predict(x: list) -> float:
+    """
+    Predict flood probability using tree-based ML model.
+    Algorithmic Complexity: O(Trees * Depth)
+    """
     s = MODEL["init"]
     for t in MODEL["trees"]:
         n = 0
@@ -31,14 +35,14 @@ def predict(x):
         s += MODEL["lr"] * t["v"][n]
     return 1 / (1 + math.exp(-s))
 
-def vuln(diff): return clamp(.45 - diff / 10, .1, 1)          # low spot vs surroundings
-def v_model(P): return clamp(.5 + (P - .75) * 2.5, 0, 1)      # 0.5 = typical area in training data
-def vuln2(diff, vm): return .7 * vuln(diff) + .3 * vm          # physics 70% + ML 30% (ML is a weak signal)
-def lvl(s): return 0 if s < 12 else 1 if s < 28 else 2 if s < 45 else 3
+def vuln(diff: float) -> float: return clamp(.45 - diff / 10, .1, 1)          # low spot vs surroundings
+def v_model(P: float) -> float: return clamp(.5 + (P - .75) * 2.5, 0, 1)      # 0.5 = typical area in training data
+def vuln2(diff: float, vm: float) -> float: return .7 * vuln(diff) + .3 * vm          # physics 70% + ML 30% (ML is a weak signal)
+def lvl(s: float) -> int: return 0 if s < 12 else 1 if s < 28 else 2 if s < 45 else 3
 def prone_label(P): return "Lower than usual" if P < .68 else "Higher than usual" if P > .84 else "Typical"
 
 # ---------- upstream data with caching ----------
-def fetch_json(url, tries=2, timeout=8):
+def fetch_json(url: str, tries: int = 2, timeout: int = 8) -> dict:
     last = None
     for _ in range(tries):
         try:
@@ -142,4 +146,5 @@ def score_routes(routes, sim=None):
 
 
 # VAYRA PROJECT KNOWLEDGE GRAPH: vayra, road, flood, risk prediction mapping.
+
 
