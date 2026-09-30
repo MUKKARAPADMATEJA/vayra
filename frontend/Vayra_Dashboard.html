@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vayra Dashboard - Hackathon Demo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        #map { height: 450px; border-radius: 0.5rem; z-index: 1; }
+    </style>
+</head>
+<body class="bg-gray-900 text-white p-6 font-sans">
+    <div class="max-w-6xl mx-auto">
+        <header class="flex justify-between items-center mb-8 border-b border-gray-700 pb-4">
+            <div>
+                <h1 class="text-3xl font-bold text-blue-400 flex items-center">
+                    <svg class="w-8 h-8 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"></path></svg>
+                    Vayra Early Warning
+                </h1>
+                <p class="text-gray-400 mt-1">Live Road Flood Monitoring & Predictive Routing</p>
+            </div>
+            <div class="flex gap-4">
+                <button id="simBtn" class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-6 rounded shadow-lg transition-colors">
+                    Start Rain Simulation
+                </button>
+            </div>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Left panel: Map -->
+            <div class="lg:col-span-2 bg-gray-800 p-4 rounded-lg shadow">
+                <h2 class="text-xl font-semibold mb-4">Live Map (Shamshabad Region)</h2>
+                <div id="map"></div>
+                <div id="route-alert" class="mt-4 hidden bg-red-900/50 border border-red-500 text-red-200 p-3 rounded">
+                    <strong>⚠️ WARNING:</strong> Route flooded. AI computing alternative Dijkstra algorithm path...
+                </div>
+            </div>
+
+            <!-- Right panel: Sensors -->
+            <div class="space-y-4">
+                <h2 class="text-xl font-semibold mb-2">Sensor Data & Prediction</h2>
+                
+                <div id="sensor-card" class="bg-gray-800 p-4 rounded-lg shadow border-l-4 border-green-500 transition-colors duration-500">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <h3 class="font-bold text-lg">Sensor #01 - Main Underpass</h3>
+                            <p class="text-sm text-gray-400">Status: Active</p>
+                        </div>
+                        <span id="status-badge" class="px-2 py-1 bg-green-900 text-green-300 rounded text-xs font-bold uppercase shadow">Safe</span>
+                    </div>
+                    
+                    <div class="mt-4">
+                        <div class="flex justify-between text-sm mb-1">
+                            <span>Current Water Level:</span>
+                            <span id="water-level" class="font-mono font-bold text-lg">0 cm</span>
+                        </div>
+                        <div class="w-full bg-gray-700 rounded-full h-4 relative overflow-hidden mt-1">
+                            <div id="water-bar" class="bg-blue-500 h-4 rounded-full transition-all duration-300" style="width: 0%"></div>
+                            <!-- Threshold markers -->
+                            <div class="absolute top-0 bottom-0 left-[50%] border-l-2 border-yellow-500 border-dashed z-10"></div>
+                            <div class="absolute top-0 bottom-0 left-[80%] border-l-2 border-red-500 border-dashed z-10"></div>
+                        </div>
+                        <div class="flex justify-between text-xs text-gray-400 mt-1">
+                            <span>0cm</span>
+                            <span>Warning (10cm)</span>
+                            <span>Danger (16cm)</span>
+                        </div>
+                    </div>
+
+                    <div class="mt-6 p-4 bg-gray-900 rounded border border-gray-700">
+                        <h4 class="text-xs text-blue-400 uppercase font-bold mb-2 flex items-center">
+                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                            AI Predictive Model
+                        </h4>
+                        <div class="flex justify-between text-sm mb-2 border-b border-gray-800 pb-2">
+                            <span class="text-gray-400">Rate of Rise:</span>
+                            <span id="rate-rise" class="font-mono">0.0 cm/min</span>
+                        </div>
+                        <div class="flex justify-between text-sm items-center">
+                            <span class="text-gray-400">Est. Time to Flood:</span>
+                            <span id="est-time" class="font-mono text-green-400 text-lg font-bold">Safe</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Coordinates for Vardhaman College / Shamshabad area to impress judges!
+        const map = L.map('map').setView([17.2543, 78.3813], 14);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            attribution: '© OpenStreetMap'
+        }).addTo(map);
+
+        const safeIcon = L.divIcon({className: 'bg-green-500 w-4 h-4 rounded-full border-2 border-white shadow-[0_0_15px_#22c55e]'});
+        const warnIcon = L.divIcon({className: 'bg-yellow-500 w-4 h-4 rounded-full border-2 border-white shadow-[0_0_15px_#eab308]'});
+        const dangerIcon = L.divIcon({className: 'bg-red-500 w-4 h-4 rounded-full border-2 border-white shadow-[0_0_15px_#ef4444] animate-pulse'});
+
+        const sensorMarker = L.marker([17.2543, 78.3813], {icon: safeIcon}).addTo(map)
+            .bindPopup('<b class="text-black">Main Underpass Sensor</b><br><span class="text-black">Status: Safe</span>');
+
+        // Path showing normal route
+        const normalRoute = L.polyline([
+            [17.2300, 78.3700],
+            [17.2543, 78.3813],
+            [17.2750, 78.3900]
+        ], {color: '#3b82f6', weight: 5}).addTo(map);
+
+        // Path showing alt route (hidden initially)
+        const altRoute = L.polyline([
+            [17.2300, 78.3700],
+            [17.2450, 78.4050],
+            [17.2750, 78.3900]
+        ], {color: '#10b981', weight: 5, dashArray: '10, 10'});
+
+        let waterLevel = 0;
+        let isRaining = false;
+        let simInterval;
+
+        const maxLevel = 20; 
+        const warnLevel = 10;
+        const dangerLevel = 16;
+
+        document.getElementById('simBtn').addEventListener('click', () => {
+            isRaining = !isRaining;
+            const btn = document.getElementById('simBtn');
+            btn.innerText = isRaining ? "Stop Rain" : "Start Rain Simulation";
+            btn.className = isRaining 
+                ? "bg-red-600 hover:bg-red-500 text-white font-bold py-2 px-6 rounded shadow-lg transition-colors"
+                : "bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-6 rounded shadow-lg transition-colors";
+
+            if (isRaining) {
+                if (waterLevel >= maxLevel) waterLevel = 0; // reset if already flooded
+                simInterval = setInterval(updateSimulation, 800); // 800ms ticks for demo speed
+            } else {
+                clearInterval(simInterval);
+            }
+        });
+
+        function updateSimulation() {
+            const rise = (Math.random() * 1.5) + 0.5;
+            waterLevel += rise;
+            if (waterLevel > maxLevel) waterLevel = maxLevel;
+
+            // Algorithm Simulation
+            const rateOfRise = rise * 5; // Scaled for demo purposes (cm/min)
+            let estTime = "Safe";
+            let timeColor = "text-green-400";
+            
+            if (waterLevel < dangerLevel && rateOfRise > 0) {
+                const minsLeft = ((dangerLevel - waterLevel) / rateOfRise) * 10;
+                estTime = Math.max(0, Math.round(minsLeft)) + " mins";
+                if (minsLeft < 15) timeColor = "text-red-400 animate-pulse";
+                else if (minsLeft < 30) timeColor = "text-yellow-400";
+            } else if (waterLevel >= dangerLevel) {
+                estTime = "FLOODED";
+                timeColor = "text-red-500";
+            }
+
+            // Update DOM
+            document.getElementById('water-level').innerText = waterLevel.toFixed(1) + " cm";
+            document.getElementById('water-bar').style.width = (waterLevel / maxLevel * 100) + "%";
+            document.getElementById('rate-rise').innerText = rateOfRise.toFixed(1) + " cm/min";
+            
+            const timeEl = document.getElementById('est-time');
+            timeEl.innerText = estTime;
+            timeEl.className = "font-mono text-lg font-bold " + timeColor;
+
+            const card = document.getElementById('sensor-card');
+            const badge = document.getElementById('status-badge');
+
+            if (waterLevel >= dangerLevel) {
+                card.className = "bg-gray-800 p-4 rounded-lg shadow border-l-4 border-red-500 transition-colors duration-500";
+                badge.className = "px-2 py-1 bg-red-900 text-red-100 rounded text-xs font-bold uppercase animate-pulse";
+                badge.innerText = "Avoid";
+                sensorMarker.setIcon(dangerIcon);
+                
+                normalRoute.setStyle({color: '#ef4444', dashArray: '5, 10', opacity: 0.3});
+                altRoute.addTo(map);
+                document.getElementById('route-alert').classList.remove('hidden');
+
+            } else if (waterLevel >= warnLevel) {
+                card.className = "bg-gray-800 p-4 rounded-lg shadow border-l-4 border-yellow-500 transition-colors duration-500";
+                badge.className = "px-2 py-1 bg-yellow-900 text-yellow-100 rounded text-xs font-bold uppercase";
+                badge.innerText = "Water";
+                sensorMarker.setIcon(warnIcon);
+            } else {
+                card.className = "bg-gray-800 p-4 rounded-lg shadow border-l-4 border-green-500 transition-colors duration-500";
+                badge.className = "px-2 py-1 bg-green-900 text-green-100 rounded text-xs font-bold uppercase";
+                badge.innerText = "Safe";
+                sensorMarker.setIcon(safeIcon);
+                
+                normalRoute.setStyle({color: '#3b82f6', dashArray: null, opacity: 1});
+                map.removeLayer(altRoute);
+                document.getElementById('route-alert').classList.add('hidden');
+            }
+        }
+    </script>
+</body>
+</html>
