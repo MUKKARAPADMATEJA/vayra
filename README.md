@@ -5,8 +5,8 @@ and the safest route to any place you search, with risk % and arrival time for e
 
 ```
 Browser (Google Maps, GPS)  ──►  Python server  ──►  Open-Meteo (rain forecast, elevation, yearly rain)
-       static/index.html          app/server.py       ML model (model/flood_model.json)
-                                  app/engine.py       SQLite alerts (app/alerts.py) ──► console / Slack / Discord
+       index.html          server.py       ML model (flood_model.json)
+                                  engine.py       SQLite alerts (alerts.py) ──► console / Slack / Discord
 ```
 
 ## Run it (5 minutes, no pip installs)
@@ -57,7 +57,7 @@ subscriber contacts.
 Every 10 minutes (`SCAN_SECONDS`) the server re-checks each subscribed place and alerts **once** when risk
 rises to the chosen level (no spam; resets after it calms down). Alerts print to the console and, if
 `ALERT_WEBHOOK_URL` is a Slack/Discord webhook, are posted there. SMS/WhatsApp needs a provider such as
-Twilio: add its call inside `notify()` in `app/alerts.py`.
+Twilio: add its call inside `notify()` in `alerts.py`.
 
 ## Deploy
 `docker build -t rainroute . && docker run -p 8000:8000 --env-file .env rainroute`
@@ -74,3 +74,4 @@ and add your site URL to the Google key's referrer list.
 
 ## Socio-Technical Impact
 This project directly contributes to **SDG 9: Industry, Innovation & Infrastructure** by building resilient infrastructure and promoting sustainable industrialization through AI-driven flood prediction for Vayra road networks.
+
