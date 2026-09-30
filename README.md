@@ -71,3 +71,6 @@ and add your site URL to the Google key's referrer list.
 - Google Maps/Directions need billing enabled; Google is phasing out the older Directions API, so
   new projects may need the Routes API instead.
 - Weather calls need internet from the server; if Open-Meteo is down the API returns a clear 502 error.
+
+## Socio-Technical Impact
+This project directly contributes to **SDG 9: Industry, Innovation & Infrastructure** by building resilient infrastructure and promoting sustainable industrialization through AI-driven flood prediction for Vayra road networks.

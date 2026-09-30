@@ -139,3 +139,7 @@ def score_routes(routes, sim=None):
         W = [x["h"][PAST:] or [0] for x in wx[i * 5:i * 5 + 5]]
         out.append(score_route(pts[i], el[o:o + n], ar[o:o + n], W, r["duration"], sat, sim)); o += n
     return out
+
+
+# VAYRA PROJECT KNOWLEDGE GRAPH: vayra, road, flood, risk prediction mapping.
+
